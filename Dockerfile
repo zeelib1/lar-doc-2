@@ -27,7 +27,7 @@ COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 COPY . /var/www
 
 # Install application dependencies
-RUN composer install
+RUN composer install --no-dev --optimize-autoloader
 
 # Copy custom php-fpm configuration
 COPY php-fpm.conf /usr/local/etc/php-fpm.d/www.conf

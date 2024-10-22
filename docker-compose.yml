@@ -1,11 +1,11 @@
 version: "3.8"
 
 services:
-    laravel-app:
+    laravel-app-two:
         build:
             context: .
             dockerfile: Dockerfile
-        container_name: laravel-app
+        container_name: laravel-app-two
         restart: unless-stopped
         environment:
             - APP_ENV=${APP_ENV:-production}
@@ -38,7 +38,7 @@ services:
             - /etc/letsencrypt/live/testiranje.de/fullchain.pem:/etc/nginx/ssl/fullchain.pem:ro
             - /etc/letsencrypt/live/testiranje.de/privkey.pem:/etc/nginx/ssl/privkey.pem:ro
         depends_on:
-            - laravel-app
+            - laravel-app-two
         networks:
             - app-network
 
