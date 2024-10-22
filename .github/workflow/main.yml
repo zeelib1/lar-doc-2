@@ -59,8 +59,14 @@ jobs:
 
       - name: Deploy to VPS
         run: |
-          rsync -avz --delete --exclude=node_modules --exclude=.git --exclude=.github ./ ${{ secrets.USERNAME }}@${{ secrets.HOST }}:/var/www/html/laravel-app-two/
+          set -x  # Enable verbose output
+          rsync -avvz --delete --exclude=node_modules --exclude=.git --exclude=.github ./ ${{ secrets.USERNAME }}@${{ secrets.HOST }}:/var/www/html/laravel-app-two/
+          if [ $? -ne 0 ]; then
+            echo "rsync failed"
+            exit 1
+          fi
           ssh ${{ secrets.USERNAME }}@${{ secrets.HOST }} "
+            set -x
             sudo chown -R www-data:www-data /var/www/html/laravel-app-two
             sudo chmod -R 755 /var/www/html/laravel-app-two
             sudo chmod -R 775 /var/www/html/laravel-app-two/storage /var/www/html/laravel-app-two/bootstrap/cache
@@ -69,7 +75,9 @@ jobs:
       - name: List directory contents after deployment
         run: |
           ssh ${{ secrets.USERNAME }}@${{ secrets.HOST }} "
+            set -x
             ls -la /var/www/html/laravel-app-two
+            du -sh /var/www/html/laravel-app-two/*
           "
 
       - name: Set up application on server
@@ -167,4 +175,27 @@ jobs:
             cd /var/www/html/laravel-app-two 
             echo 'GITHUB_SHA=${{ github.sha }}' >> .env
             echo 'GITHUB_REF=${{ github.ref }}' >> .env
+          "
+
+      - name: Check server permissions
+        run: |
+          ssh ${{ secrets.USERNAME }}@${{ secrets.HOST }} "
+            set -x
+            ls -la /var/www/html
+            sudo -v
+            whoami
+          "
+
+      - name: Check server disk space
+        run: |
+          ssh ${{ secrets.USERNAME }}@${{ secrets.HOST }} "
+            df -h
+          "
+
+      - name: Test file transfer
+        run: |
+          echo "Test file" > test.txt
+          scp test.txt ${{ secrets.USERNAME }}@${{ secrets.HOST }}:/var/www/html/laravel-app-two/
+          ssh ${{ secrets.USERNAME }}@${{ secrets.HOST }} "
+            ls -la /var/www/html/laravel-app-two/test.txt
           "
