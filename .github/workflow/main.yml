@@ -17,11 +17,19 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v2
 
-      - name: Install SSH key
-        uses: shimataro/ssh-key-action@v2
+      - name: Set up PHP
+        uses: shivammathur/setup-php@v2
         with:
-          key: ${{ secrets.SSH_KEY }}
-          known_hosts: ${{ secrets.KNOWN_HOSTS }}
+          php-version: "8.2"
+
+      - name: Install rsync and SSH setup
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y rsync
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SSH_KEY }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan ${{ secrets.HOST }} >> ~/.ssh/known_hosts
 
       - name: Copy .env file
         run: |
@@ -29,6 +37,9 @@ jobs:
             echo "Error: .env file not found in the repository."
             exit 1
           fi
+
+      - name: Install Composer dependencies
+        run: composer install --no-dev --optimize-autoloader
 
       - name: Set Environment Variables
         run: |
@@ -40,51 +51,109 @@ jobs:
           echo "DB_USERNAME=${{ secrets.DB_USERNAME }}" >> .env
           echo "DB_PASSWORD=${{ secrets.DB_PASSWORD }}" >> .env
 
-      - name: Copy repository to server
-        run: |
-          rsync -avz --delete --exclude='.git' --exclude='node_modules' --exclude='vendor' ./ ${{ secrets.USERNAME }}@${{ secrets.HOST }}:/var/www/html/laravel-app-two/
-
-      - name: Install Composer dependencies
+      - name: Check and free port 80
         run: |
           ssh ${{ secrets.USERNAME }}@${{ secrets.HOST }} "
-            cd /var/www/html/laravel-app-two
-            composer install --no-dev --optimize-autoloader
+            sudo lsof -ti:80 | xargs --no-run-if-empty sudo kill -9
           "
 
-      - name: Set correct permissions
+      - name: Deploy to VPS
+        run: |
+          rsync -avz --exclude=node_modules --exclude=.git --exclude=.github ./ ${{ secrets.USERNAME }}@${{ secrets.HOST }}:/var/www/html/laravel-app/
+
+      - name: Set up application on server
+        run: |
+          ssh -T ${{ secrets.USERNAME }}@${{ secrets.HOST }} << 'EOF'
+            cd /var/www/html/laravel-app-two
+            composer install --no-dev --optimize-autoloader
+            php artisan migrate --force
+            php artisan config:cache
+            php artisan route:cache
+            php artisan view:cache
+            chown -R www-data:www-data .
+            chmod -R 755 storage bootstrap/cache
+          EOF
+
+      - name: Stop and remove all containers and networks
         run: |
           ssh ${{ secrets.USERNAME }}@${{ secrets.HOST }} "
             cd /var/www/html/laravel-app-two
-            sudo chown -R www-data:www-data .
-            sudo chmod -R 755 .
-            sudo chmod -R 775 storage bootstrap/cache
+            docker-compose down --volumes --remove-orphans
+            docker network prune -f
+            docker rm -f $(docker ps -aq) || true
+            docker volume prune -f
+          "
+
+      - name: Remove existing network if it exists
+        run: |
+          ssh ${{ secrets.USERNAME }}@${{ secrets.HOST }} "
+            docker network rm laravel-app-two_app-network || true
+          "
+
+      - name: Copy server .env file
+        run: |
+          ssh ${{ secrets.USERNAME }}@${{ secrets.HOST }} "
+            cp /path/to/secure/.env /var/www/html/laravel-app-two/.env
+          "
+
+      - name: Update .env file
+        run: |
+          ssh ${{ secrets.USERNAME }}@${{ secrets.HOST }} "
+            cd /var/www/html/laravel-app-two
+            sed -i 's/DB_HOST=.*/DB_HOST=postgres/' .env
+            sed -i 's/REDIS_HOST=.*/REDIS_HOST=redis/' .env
+            # Add any other necessary .env updates here
+          "
+
+      - name: Cache Laravel configuration
+        run: |
+          ssh ${{ secrets.USERNAME }}@${{ secrets.HOST }} "
+            cd /var/www/html/laravel-app-two
+            php artisan config:cache
+          "
+
+      - name: Prune Docker system
+        run: |
+          ssh ${{ secrets.USERNAME }}@${{ secrets.HOST }} "
+            docker system prune -af --volumes
+          "
+
+      - name: Install Node.js and npm
+        run: |
+          ssh ${{ secrets.USERNAME }}@${{ secrets.HOST }} "
+            curl -fsSL https://deb.nodesource.com/setup_16.x | sudo -E bash -
+            sudo apt-get install -y nodejs
+          "
+
+      - name: Install NPM dependencies and build assets
+        run: |
+          ssh ${{ secrets.USERNAME }}@${{ secrets.HOST }} "
+            cd /var/www/html/laravel-app
+            npm ci
+            npm run build
+          "
+
+      - name: Clear Laravel cache
+        run: |
+          ssh ${{ secrets.USERNAME }}@${{ secrets.HOST }} "
+            cd /var/www/html/laravel-app-two
+            php artisan cache:clear
+            php artisan config:clear
+            php artisan view:clear
           "
 
       - name: Deploy and start containers
         run: |
           ssh ${{ secrets.USERNAME }}@${{ secrets.HOST }} "
             cd /var/www/html/laravel-app-two
-            docker-compose down --volumes --remove-orphans
-            docker network prune -f
-            docker system prune -af --volumes
             docker network create laravel-app-two_app-network || true
             docker-compose up -d --build --force-recreate
-          "
-
-      - name: Run Laravel commands
-        run: |
-          ssh ${{ secrets.USERNAME }}@${{ secrets.HOST }} "
-            cd /var/www/html/laravel-app-two
-            docker-compose exec -T laravel-app-two php artisan migrate --force
-            docker-compose exec -T laravel-app-two php artisan config:cache
-            docker-compose exec -T laravel-app-two php artisan route:cache
-            docker-compose exec -T laravel-app-two php artisan view:cache
           "
 
       - name: Update GitHub-specific variables
         run: |
           ssh ${{ secrets.USERNAME }}@${{ secrets.HOST }} "
-            cd /var/www/html/laravel-app-two
+            cd /var/www/html/laravel-app-two 
             echo 'GITHUB_SHA=${{ github.sha }}' >> .env
             echo 'GITHUB_REF=${{ github.ref }}' >> .env
           "
