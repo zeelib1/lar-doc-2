@@ -59,7 +59,7 @@ jobs:
 
       - name: Deploy to VPS
         run: |
-          rsync -avz --exclude=node_modules --exclude=.git --exclude=.github ./ ${{ secrets.USERNAME }}@${{ secrets.HOST }}:/var/www/html/laravel-app-two/
+          rsync -avz --delete --exclude=node_modules --exclude=.git --exclude=.github ./ ${{ secrets.USERNAME }}@${{ secrets.HOST }}:/var/www/html/laravel-app-two/
 
       - name: Set up application on server
         run: |
@@ -70,8 +70,8 @@ jobs:
             php artisan config:cache
             php artisan route:cache
             php artisan view:cache
-            chown -R www-data:www-data .
-            chmod -R 755 storage bootstrap/cache
+            sudo chown -R www-data:www-data .
+            sudo chmod -R 755 storage bootstrap/cache
           EOF
 
       - name: Stop and remove all containers and networks
@@ -128,7 +128,7 @@ jobs:
       - name: Install NPM dependencies and build assets
         run: |
           ssh ${{ secrets.USERNAME }}@${{ secrets.HOST }} "
-            cd /var/www/html/laravel-app
+            cd /var/www/html/laravel-app-two
             npm ci
             npm run build
           "
@@ -156,4 +156,10 @@ jobs:
             cd /var/www/html/laravel-app-two 
             echo 'GITHUB_SHA=${{ github.sha }}' >> .env
             echo 'GITHUB_REF=${{ github.ref }}' >> .env
+          "
+
+      - name: List directory contents
+        run: |
+          ssh ${{ secrets.USERNAME }}@${{ secrets.HOST }} "
+            ls -la /var/www/html/laravel-app-two
           "
