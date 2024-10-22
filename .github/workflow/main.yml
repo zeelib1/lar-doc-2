@@ -96,7 +96,10 @@ jobs:
       - name: Copy server .env file
         run: |
           ssh ${{ secrets.USERNAME }}@${{ secrets.HOST }} "
-            cp /path/to/secure/.env /var/www/html/laravel-app-two/.env
+            if [ ! -f /var/www/html/laravel-app-two/.env ]; then
+              echo 'Error: .env file not found in /var/www/html/laravel-app-two/'
+              exit 1
+            fi
           "
 
       - name: Update .env file
@@ -105,7 +108,9 @@ jobs:
             cd /var/www/html/laravel-app-two
             sed -i 's/DB_HOST=.*/DB_HOST=postgres/' .env
             sed -i 's/REDIS_HOST=.*/REDIS_HOST=redis/' .env
-            # Add any other necessary .env updates here
+            if [ -z \"\$(grep APP_KEY .env | cut -d '=' -f2)\" ]; then
+              docker-compose run --rm laravel-app-two php artisan key:generate
+            fi
           "
 
       - name: Cache Laravel configuration
@@ -150,6 +155,7 @@ jobs:
           ssh ${{ secrets.USERNAME }}@${{ secrets.HOST }} "
             cd /var/www/html/laravel-app-two
             docker network create laravel-app-two_app-network || true
+            docker-compose down
             docker-compose up -d --build --force-recreate
           "
 
