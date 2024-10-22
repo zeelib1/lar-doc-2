@@ -40,9 +40,25 @@ jobs:
           echo "DB_USERNAME=${{ secrets.DB_USERNAME }}" >> .env
           echo "DB_PASSWORD=${{ secrets.DB_PASSWORD }}" >> .env
 
-      - name: Copy files to server
+      - name: Copy repository to server
         run: |
-          rsync -avz --exclude='.git' --exclude='node_modules' --exclude='vendor' ./ ${{ secrets.USERNAME }}@${{ secrets.HOST }}:/var/www/html/laravel-app-two/
+          rsync -avz --delete --exclude='.git' --exclude='node_modules' --exclude='vendor' ./ ${{ secrets.USERNAME }}@${{ secrets.HOST }}:/var/www/html/laravel-app-two/
+
+      - name: Install Composer dependencies
+        run: |
+          ssh ${{ secrets.USERNAME }}@${{ secrets.HOST }} "
+            cd /var/www/html/laravel-app-two
+            composer install --no-dev --optimize-autoloader
+          "
+
+      - name: Set correct permissions
+        run: |
+          ssh ${{ secrets.USERNAME }}@${{ secrets.HOST }} "
+            cd /var/www/html/laravel-app-two
+            sudo chown -R www-data:www-data .
+            sudo chmod -R 755 .
+            sudo chmod -R 775 storage bootstrap/cache
+          "
 
       - name: Deploy and start containers
         run: |
