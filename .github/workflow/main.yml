@@ -65,6 +65,9 @@ jobs:
         run: |
           ssh -T ${{ secrets.USERNAME }}@${{ secrets.HOST }} << 'EOF'
             cd /var/www/html/laravel-app-two
+            if [ -z "$(grep APP_KEY .env | cut -d '=' -f2)" ]; then
+              docker-compose run --rm laravel-app php artisan key:generate
+            fi
             composer install --no-dev --optimize-autoloader
             php artisan migrate --force
             php artisan config:cache
