@@ -5,7 +5,7 @@ services:
         build:
             context: .
             dockerfile: Dockerfile
-        container_name: laravel-app-two
+        container_name: laravel-app-dvojka
         restart: unless-stopped
         environment:
             - APP_ENV=${APP_ENV:-production}
