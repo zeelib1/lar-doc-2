@@ -27,6 +27,7 @@ services:
             - /var/www/html/laravel-app-two/storage:/var/www/storage
         networks:
             - app-network
+        user: www-data
 
     nginx:
         image: nginx:alpine
