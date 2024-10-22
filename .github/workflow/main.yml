@@ -59,10 +59,11 @@ jobs:
 
       - name: Deploy to VPS
         run: |
-          rsync -avvz --delete --exclude=node_modules --exclude=.git --exclude=.github ./ ${{ secrets.USERNAME }}@${{ secrets.HOST }}:/var/www/html/laravel-app-two/
+          rsync -avz --delete --exclude=node_modules --exclude=.git --exclude=.github ./ ${{ secrets.USERNAME }}@${{ secrets.HOST }}:/var/www/html/laravel-app-two/
           ssh ${{ secrets.USERNAME }}@${{ secrets.HOST }} "
-            sudo chown -R ${{ secrets.USERNAME }}:${{ secrets.USERNAME }} /var/www/html/laravel-app-two
+            sudo chown -R www-data:www-data /var/www/html/laravel-app-two
             sudo chmod -R 755 /var/www/html/laravel-app-two
+            sudo chmod -R 775 /var/www/html/laravel-app-two/storage /var/www/html/laravel-app-two/bootstrap/cache
           "
 
       - name: List directory contents after deployment
