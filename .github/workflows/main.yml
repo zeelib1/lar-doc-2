@@ -47,35 +47,29 @@ jobs:
           echo "DB_USERNAME=${{ secrets.DB_USERNAME }}" >> .env
           echo "DB_PASSWORD=${{ secrets.DB_PASSWORD }}" >> .env
 
-      - name: Deploy to VPS using scp
+      - name: Deploy to VPS using scp with timeout and progress
         run: |
           set -x
-          scp -r ./* ${{ secrets.USERNAME }}@${{ secrets.HOST }}:/var/www/html/laravel-app-two/
+          timeout 10m scp -r -o ConnectTimeout=60 -o ServerAliveInterval=60 -v ./* ${{ secrets.USERNAME }}@${{ secrets.HOST }}:/var/www/html/laravel-app-two/
           if [ $? -ne 0 ]; then
-            echo "scp failed"
+            echo "scp failed or timed out"
             exit 1
           fi
 
-      - name: List directory contents after deployment
+      - name: Check transfer status
         run: |
           ssh ${{ secrets.USERNAME }}@${{ secrets.HOST }} "
             set -x
             ls -la /var/www/html/laravel-app-two
-            du -sh /var/www/html/laravel-app-two/*
+            du -sh /var/www/html/laravel-app-two
           "
 
-      - name: Check server permissions
+      - name: Check server load and resources
         run: |
           ssh ${{ secrets.USERNAME }}@${{ secrets.HOST }} "
             set -x
-            ls -la /var/www/html
-            sudo -v
-            whoami
-          "
-
-      - name: Check server disk space
-        run: |
-          ssh ${{ secrets.USERNAME }}@${{ secrets.HOST }} "
+            uptime
+            free -m
             df -h
           "
 
