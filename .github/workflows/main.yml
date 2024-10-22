@@ -47,9 +47,45 @@ jobs:
           echo "DB_USERNAME=${{ secrets.DB_USERNAME }}" >> .env
           echo "DB_PASSWORD=${{ secrets.DB_PASSWORD }}" >> .env
 
-      - name: Deploy to VPS
+      - name: Deploy to VPS using scp
         run: |
-          rsync -avz --exclude=node_modules --exclude=.git --exclude=.github ./ ${{ secrets.USERNAME }}@${{ secrets.HOST }}:/var/www/html/laravel-app/
+          set -x
+          scp -r ./* ${{ secrets.USERNAME }}@${{ secrets.HOST }}:/var/www/html/laravel-app-two/
+          if [ $? -ne 0 ]; then
+            echo "scp failed"
+            exit 1
+          fi
+
+      - name: List directory contents after deployment
+        run: |
+          ssh ${{ secrets.USERNAME }}@${{ secrets.HOST }} "
+            set -x
+            ls -la /var/www/html/laravel-app-two
+            du -sh /var/www/html/laravel-app-two/*
+          "
+
+      - name: Check server permissions
+        run: |
+          ssh ${{ secrets.USERNAME }}@${{ secrets.HOST }} "
+            set -x
+            ls -la /var/www/html
+            sudo -v
+            whoami
+          "
+
+      - name: Check server disk space
+        run: |
+          ssh ${{ secrets.USERNAME }}@${{ secrets.HOST }} "
+            df -h
+          "
+
+      - name: Test file transfer
+        run: |
+          echo "Test file" > test.txt
+          scp test.txt ${{ secrets.USERNAME }}@${{ secrets.HOST }}:/var/www/html/laravel-app-two/
+          ssh ${{ secrets.USERNAME }}@${{ secrets.HOST }} "
+            ls -la /var/www/html/laravel-app-two/test.txt
+          "
 
       - name: Set up application on server
         run: |
@@ -71,3 +107,19 @@ jobs:
             docker-compose down
             docker-compose up -d --build
           EOF
+
+      - name: Update .env file
+        run: |
+          ssh ${{ secrets.USERNAME }}@${{ secrets.HOST }} "
+            cd /var/www/html/laravel-app-two
+            sed -i 's/DB_HOST=.*/DB_HOST=postgres/' .env
+            sed -i 's/REDIS_HOST=.*/REDIS_HOST=redis/' .env
+            # Add any other necessary .env updates here
+          "
+
+      - name: Deploy and start containers
+        run: |
+          ssh ${{ secrets.USERNAME }}@${{ secrets.HOST }} "
+            cd /var/www/html/laravel-app-two
+            docker-compose up -d --build --force-recreate
+          "
