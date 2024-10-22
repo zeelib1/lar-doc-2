@@ -24,6 +24,8 @@ services:
             - /var/www/html/laravel-app-two/.env
         volumes:
             - /var/www/html/laravel-app-two:/var/www
+            - /var/www/html/laravel-app-two/storage:/var/www/storage
+            - /var/www/html/laravel-app-two/.env:/var/www/.env:ro
         networks:
             - app-network
 
