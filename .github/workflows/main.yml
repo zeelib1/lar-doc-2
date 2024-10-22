@@ -47,12 +47,12 @@ jobs:
           echo "DB_USERNAME=${{ secrets.DB_USERNAME }}" >> .env
           echo "DB_PASSWORD=${{ secrets.DB_PASSWORD }}" >> .env
 
-      - name: Deploy to VPS using scp with timeout and progress
+      - name: Deploy to VPS using rsync
         run: |
           set -x
-          timeout 10m scp -r -o ConnectTimeout=60 -o ServerAliveInterval=60 -v ./* ${{ secrets.USERNAME }}@${{ secrets.HOST }}:/var/www/html/laravel-app-two/
+          timeout 20m rsync -avz --delete --exclude=node_modules --exclude=.git --exclude=.github -e "ssh -o ConnectTimeout=60 -o ServerAliveInterval=60" ./ ${{ secrets.USERNAME }}@${{ secrets.HOST }}:/var/www/html/laravel-app-two/
           if [ $? -ne 0 ]; then
-            echo "scp failed or timed out"
+            echo "rsync failed or timed out"
             exit 1
           fi
 
