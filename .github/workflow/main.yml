@@ -42,7 +42,7 @@ jobs:
 
       - name: Copy files to server
         run: |
-          scp -r .env docker-compose.yml Dockerfile ${{ secrets.USERNAME }}@${{ secrets.HOST }}:/var/www/html/laravel-app-two/
+          rsync -avz --exclude='.git' --exclude='node_modules' --exclude='vendor' ./ ${{ secrets.USERNAME }}@${{ secrets.HOST }}:/var/www/html/laravel-app-two/
 
       - name: Deploy and start containers
         run: |

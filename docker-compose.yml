@@ -23,7 +23,7 @@ services:
         env_file:
             - /var/www/html/laravel-app-two/.env
         volumes:
-            - /var/www/html/laravel-app-two:/var/www
+            # - /var/www/html/laravel-app-two:/var/www  # Comment out or remove this line
             - /var/www/html/laravel-app-two/storage:/var/www/storage
             - /var/www/html/laravel-app-two/.env:/var/www/.env:ro
         networks:
